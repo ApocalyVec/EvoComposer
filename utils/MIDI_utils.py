@@ -1,6 +1,13 @@
+from collections import OrderedDict
+from collections import Counter, OrderedDict
+
 from music21 import converter, instrument, note, chord, stream
 import numpy as np
 from pyspark import SparkConf, SparkContext
+
+import os
+
+from sklearn.model_selection import train_test_split
 
 
 def read_midi(file):
@@ -125,3 +132,46 @@ def convert_to_midi(prediction_output, fp):
         offset += 1
     midi_stream = stream.Stream(output_notes)
     midi_stream.write('midi', fp=fp)
+
+
+def load_samples(data_dir, timesteps, f_threshold, _use_spark=False):
+    # spark_location = '/Users/Leo/spark-2.4.3-bin-hadoop2.7'  # Set your own
+    # java8_location = '/Library/Java/JavaVirtualMachines/jdk1.8.0_151.jdk/Contents/Home/jre'
+    # os.environ['JAVA_HOME'] = java8_location
+    # findspark.init(spark_home=spark_location)
+    files = [x for x in os.listdir(data_dir) if x.split('.')[-1] == 'mid']  # read all the files end with mid
+    if _use_spark:
+        sc = _create_sc(num_cores=16, driver_mem=12, max_result_mem=12)
+        files_rdd = sc.parallelize(files)
+        notes_flat_rdd = files_rdd.flatMap(lambda x: read_midi(os.path.join(data_dir, x))).cache()
+        notes_rdd = files_rdd.map(lambda x: read_midi(os.path.join(data_dir, x))).cache()
+
+        notes_array = notes_rdd.collect()
+        notes = notes_flat_rdd.collect()
+    else:
+        notes_array = np.array([read_midi(os.path.join(data_dir, x)) for x in files])
+        notes = np.ravel(notes_array)
+
+    freq = OrderedDict(Counter(notes))
+
+    # plt.plot([f for f in freq.values()])  # plot the frequencies
+
+    # only keep the notes with frequency that are higher than 50
+    frequent_notes = [n for n, f in freq.items() if f >= f_threshold]
+    music_filtered = create_filtered(notes_array, frequent_notes)
+    x, y = prepare_xy(music_filtered, timesteps=timesteps)
+
+    # one-hot encode MIDI symbols
+    # TODO use sklearn label encoder
+    unique_x = list(set(x.ravel()))
+    x_encoded = dict((note_, number) for number, note_ in enumerate(unique_x))
+    x_seq = encode_seq(x, x_encoded)
+
+    unique_y = list(set(y))
+    y_note_to_int = dict((note_, number) for number, note_ in enumerate(unique_y))
+    y_seq = np.array([y_note_to_int[i] for i in y])
+
+    # create train-test split
+    x_tr, x_val, y_tr, y_val = train_test_split(x_seq, y_seq, test_size=0.2, random_state=0)
+
+    return x_tr, x_val, y_tr, y_val, unique_x, unique_y
