@@ -49,6 +49,6 @@ if __name__ == '__main__':
         model = load_model('models/best_model.h5')
 
     # make music
-    output_path = 'music/pred_3.mid'
+    output_path = 'music/rnn/pred_3.mid'
     compose(model, unique_x, x_val, timesteps, fp=output_path)
 

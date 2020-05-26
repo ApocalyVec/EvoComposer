@@ -19,7 +19,7 @@ class Encoder(nn.Module):
 
     '''
 
-    def __init__(self, input_dim, hidden_dim, z_dim):
+    def __init__(self, input_len, hidden_dim, latent_dim):
         '''
         Args:
             input_dim: A integer indicating the size of input (in case of MNIST 28 * 28).
@@ -28,28 +28,22 @@ class Encoder(nn.Module):
         '''
         super().__init__()
 
-        self.linear = nn.Linear(input_dim, hidden_dim)
-        self.mu = nn.Linear(hidden_dim, z_dim)
-        self.var = nn.Linear(hidden_dim, z_dim)
+        self.linear1 = nn.Linear(input_len, hidden_dim)  # first fully connected layer
+        self.linear2 = nn.Linear(hidden_dim, latent_dim)
+
+        self.activation = nn.Sigmoid()
 
     def forward(self, x):
-        # x is of shape [batch_size, input_dim]
-
-        hidden = F.relu(self.linear(x))
-        # hidden_dim is of shape [batch_size, hidden_dim]
-        z_mu = self.mu(hidden)
-        # z_mu is of shape [batch_size, latent_dim]
-        z_var = self.var(hidden)
-        # z_var is of shape [batch_size, latent_dim]
-
-        return z_mu, z_var
+        hidden1 = self.activation(self.linear1(x))  # encode with the first layer
+        latent = self.activation(self.linear2(hidden1))  # encode with the second layer
+        return latent
 
 
 class Decoder(nn.Module):
     ''' This the decoder part of VAE
 
     '''
-    def __init__(self, z_dim, hidden_dim, output_dim):
+    def __init__(self, latent_dim, hidden_dim, input_len):
         '''
         Args:
             z_dim: A integer indicating the latent size.
@@ -58,17 +52,12 @@ class Decoder(nn.Module):
         '''
         super().__init__()
 
-        self.linear = nn.Linear(z_dim, hidden_dim)
-        self.out = nn.Linear(hidden_dim, output_dim)
+        self.linear1 = nn.Linear(latent_dim, hidden_dim)  # start of the decoding
+        self.out = nn.Linear(hidden_dim, input_len)  # output of the decoder
 
     def forward(self, x):
-        # x is of shape [batch_size, latent_dim]
-
-        hidden = F.relu(self.linear(x))
-        # hidden_dim is of shape [batch_size, hidden_dim]
-
+        hidden = F.relu(self.linear1(x))
         predicted = torch.sigmoid(self.out(hidden))
-        # predicted is of shape [batch_size, output_dim]
 
         return predicted
 
@@ -85,17 +74,10 @@ class VAE(nn.Module):
 
     def forward(self, x):
         # encode
-        z_mu, z_var = self.enc(x)
-
-        # sample from the distribution having latent parameters z_mu, z_var
-        # reparameterize
-        std = torch.exp(z_var / 2)
-        eps = torch.randn_like(std)
-        x_sample = eps.mul(std).add_(z_mu)
-
+        latent = self.enc(x)
         # decode
-        predicted = self.dec(x_sample)
-        return predicted, z_mu, z_var
+        predicted = self.dec(latent)
+        return predicted
 
 
 def train(X, batch_size, loss_func):
@@ -109,25 +91,19 @@ def train(X, batch_size, loss_func):
         # reshape the data into [batch_size, 784]
         x = torch.FloatTensor(X[i:i + batch_size])
         x = x.to(device)
-
+        x_target = x.clone()
         # update the gradients to zero
         optimizer.zero_grad()
 
         # forward pass
-        x_sample, z_mu, z_var = model(x)
+        x_pred = model(x)
 
         # reconstruction loss
-        recon_loss = loss_func(x_sample, x)
-
-        # kl divergence loss
-        kl_loss = 0.5 * torch.sum(torch.exp(z_var) + z_mu ** 2 - 1.0 - z_var)
-
-        # total loss
-        loss = recon_loss + kl_loss
-
+        recon_loss = loss_func(x_pred, x_target)
+        # recon_loss = F.binary_cross_entropy(x_pred, x_target, reduction='sum')
         # backward pass
-        loss.backward()
-        train_loss += loss.item()
+        recon_loss.backward()
+        train_loss += recon_loss.item()
 
         # update the weights
         optimizer.step()
@@ -147,19 +123,16 @@ def test(X, batch_size, loss_func):
             # reshape the data
             x = torch.FloatTensor(X[i:i + batch_size])
             x = x.to(device)
+            x_target = x.clone()
 
             # forward pass
-            x_sample, z_mu, z_var = model(x)
+            x_pred = model(x)
 
             # reconstruction loss
-            recon_loss = loss_func(x_sample, x)
+            recon_loss = loss_func(x_pred, x_target)
+            # recon_loss = F.binary_cross_entropy(x_pred, x_target, reduction='sum')
 
-            # kl divergence loss
-            kl_loss = 0.5 * torch.sum(torch.exp(z_var) + z_mu ** 2 - 1.0 - z_var)
-
-            # total loss
-            loss = recon_loss + kl_loss
-            test_loss += loss.item()
+            test_loss += recon_loss.item()
 
     return test_loss
 
@@ -177,23 +150,17 @@ BATCH_SIZE = 64  # number of data points in each batch
 N_EPOCHS = 10  # times to run the model on complete data
 INPUT_DIM = timesteps  # size of each input
 HIDDEN_DIM = 256  # hidden_dim dimension
-LATENT_DIM = 20  # latent vector dimension
-lr = 1e-3  # learning rate
+LATENT_DIM = 128  # latent vector dimension
+lr = 1e-2  # learning rate
 criterion = nn.SmoothL1Loss()
 
 # train_iterator = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
 # test_iterator = DataLoader(test_dataset, batch_size=BATCH_SIZE)
 
-# encoder
 encoder = Encoder(INPUT_DIM, HIDDEN_DIM, LATENT_DIM)
-
-# decoder
 decoder = Decoder(LATENT_DIM, HIDDEN_DIM, INPUT_DIM)
-
-# vae
 model = VAE(encoder, decoder).to(device)
 
-# optimizer
 optimizer = optim.Adam(model.parameters(), lr=lr)
 
 best_test_loss = float('inf')
@@ -216,16 +183,3 @@ for e in range(N_EPOCHS):
     #
     # if patience_counter > 3:
     #     break
-
-# # sample and generate a image
-# z = torch.randn(1, LATENT_DIM).to(device)
-#
-# # run only the decoder
-# reconstructed_img = model.dec(z)
-# img = reconstructed_img.view(28, 28).data
-#
-# print(z.shape)
-# print(img.shape)
-#
-# plt.imshow(img.cpu(), cmap='gray')
-# plt.show()

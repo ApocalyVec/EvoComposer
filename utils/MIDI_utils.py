@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from collections import Counter, OrderedDict
 
+import findspark
 from music21 import converter, instrument, note, chord, stream
 import numpy as np
 from pyspark import SparkConf, SparkContext
@@ -135,10 +136,10 @@ def convert_to_midi(prediction_output, fp):
 
 
 def load_samples(data_dir, timesteps, f_threshold, _use_spark=False):
-    # spark_location = '/Users/Leo/spark-2.4.3-bin-hadoop2.7'  # Set your own
-    # java8_location = '/Library/Java/JavaVirtualMachines/jdk1.8.0_151.jdk/Contents/Home/jre'
-    # os.environ['JAVA_HOME'] = java8_location
-    # findspark.init(spark_home=spark_location)
+    spark_location = '/Users/Leo/spark-2.4.3-bin-hadoop2.7'  # Set your own
+    java8_location = '/Library/Java/JavaVirtualMachines/jdk1.8.0_151.jdk/Contents/Home/jre'
+    os.environ['JAVA_HOME'] = java8_location
+    findspark.init(spark_home=spark_location)
     files = [x for x in os.listdir(data_dir) if x.split('.')[-1] == 'mid']  # read all the files end with mid
     if _use_spark:
         sc = _create_sc(num_cores=16, driver_mem=12, max_result_mem=12)
