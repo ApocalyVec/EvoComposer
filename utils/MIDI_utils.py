@@ -7,7 +7,7 @@ def read_midi(file):
     """
     # defining function to read MIDI files
     :param file:
-    :return:
+    :return: np array of notes
     """
     print("Loading Music File:", file)
 

@@ -4,20 +4,20 @@ from keras.layers import *
 from keras.models import *
 from keras.callbacks import *
 import keras.backend as K
-
+import numpy as np
 from utils.MIDI_utils import convert_to_midi
 
 
 def lstm(n_vocab):
-  model = Sequential()
-  model.add(LSTM(128,return_sequences=True))
-  model.add(LSTM(128))
-  model.add(Dense(256))
-  model.add(Activation('relu'))
-  model.add(Dense(n_vocab))
-  model.add(Activation('softmax'))
-  model.compile(loss='sparse_categorical_crossentropy', optimizer='adam')
-  return model
+    model = Sequential()
+    model.add(LSTM(128, return_sequences=True))
+    model.add(LSTM(128))
+    model.add(Dense(256))
+    model.add(Activation('relu'))
+    model.add(Dense(n_vocab))
+    model.add(Activation('softmax'))
+    model.compile(loss='sparse_categorical_crossentropy', optimizer='adam')
+    return model
 
 
 def make_model(input_len, output_len):
@@ -48,6 +48,7 @@ def make_model(input_len, output_len):
 
     model.compile(loss='sparse_categorical_crossentropy', optimizer='adam')
     return model
+
 
 def compose(model, unique_x, x_val, timesteps, fp):
     ind = np.random.randint(0, len(x_val) - 1)
