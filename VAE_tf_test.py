@@ -127,7 +127,6 @@ for epoch in range(1, epochs + 1):
             test_loss(compute_loss(model, test_x))
         train_elbo = -train_loss.result()
         test_elbo = -test_loss.result()
-        print('Train loss is {}'.format())
         print('Epoch: {}, Train set ELBO: {}, Validation ELBO: {}'
               'time elapse for current epoch {}'.format(epoch,
                                                         train_elbo,
