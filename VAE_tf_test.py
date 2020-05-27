@@ -10,7 +10,8 @@ import imageio
 
 from utils.MIDI_utils import load_sample_unsupervised
 
-NUM_CLASSES = 167
+# NUM_CLASSES = 167
+NUM_CLASSES = 11
 TIMESTEPS = 64
 
 class RVAE(tf.keras.Model):
@@ -77,7 +78,6 @@ def compute_loss(model, x):
     x_logit = model.decode(z)
 
     cross_ent = tf.nn.softmax_cross_entropy_with_logits(logits=x_logit, labels=x)
-    print(cross_ent.shape)
     logpx_z = -tf.reduce_sum(cross_ent, axis=[1])
     logpz = log_normal_pdf(z, 0., 0.)
     logqz_x = log_normal_pdf(z, mean, logvar)
@@ -90,7 +90,7 @@ def compute_apply_gradients(model, x, optimizer):
         loss = compute_loss(model, x)
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-
+    return loss
 
 data_dir = 'data/schubert'
 input_timesteps = 64
@@ -116,16 +116,21 @@ model = RVAE(latent_dim)
 
 for epoch in range(1, epochs + 1):
     start_time = time.time()
+    train_loss = tf.keras.metrics.Mean()
     for train_x in train_dataset:
-        compute_apply_gradients(model, train_x, optimizer)
+        loss = compute_apply_gradients(model, train_x, optimizer)
+        train_loss(loss)
     end_time = time.time()
 
     if epoch % 1 == 0:
-        loss = tf.keras.metrics.Mean()
+        test_loss = tf.keras.metrics.Mean()
         for test_x in test_dataset:
-            loss(compute_loss(model, test_x))
-        elbo = -loss.result()
-        print('Epoch: {}, Test set ELBO: {}, '
+            test_loss(compute_loss(model, test_x))
+        train_elbo = -train_loss.result()
+        test_elbo = -test_loss.result()
+        print('Train loss is {}'.format())
+        print('Epoch: {}, Train set ELBO: {}, Validation ELBO: {}'
               'time elapse for current epoch {}'.format(epoch,
-                                                        elbo,
+                                                        train_elbo,
+                                                        test_elbo,
                                                         end_time - start_time))
