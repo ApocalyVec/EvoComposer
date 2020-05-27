@@ -50,7 +50,7 @@ if __name__ == '__main__':
     # only keep the notes with frequency that are higher than 50
     frequent_notes = [n for n, f in freq.items() if f >= f_threshold]
     music_filtered = create_filtered(notes_array, frequent_notes)
-    x, y = prepare_xy(music_filtered, timesteps=timesteps)
+    x, y = prepare_xy(music_filtered, window_size=timesteps)
 
     # one-hot encode MIDI symbols
     # TODO use sklearn label encoder
