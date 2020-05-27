@@ -17,10 +17,32 @@ import findspark as findspark
 from collections import Counter, OrderedDict
 from sklearn.model_selection import train_test_split
 
-
 from utils.MIDI_utils import read_midi, _create_sc, create_filtered, prepare_xy, encode_seq
-import nltk
-nltk.download('punkt')
+from utils.MIDI_utils import convert_to_midi
+
+import pickle
+
+
+def compose(model, unique_x, x_val, timesteps, fp):
+    ind = np.random.randint(0, len(x_val) - 1)
+    random_music = x_val[ind]
+    predictions = []
+    for i in range(10):
+        random_music = random_music.reshape(1, timesteps)
+
+        prob = model.predict(random_music)[0]
+        y_pred = np.argmax(prob, axis=0)
+        predictions.append(y_pred)
+
+        random_music = np.insert(random_music[0], len(random_music[0]), y_pred)
+        random_music = random_music[1:]
+
+    # convert the output features to back to notes
+    x_int_to_note = dict((number, note_) for number, note_ in enumerate(unique_x))
+    predicted_notes = [x_int_to_note[i] for i in predictions]
+
+    # convert to playable MIDI format
+    convert_to_midi(predicted_notes, fp)
 
 
 if __name__ == '__main__':
@@ -53,7 +75,6 @@ if __name__ == '__main__':
     x, y = prepare_xy(music_filtered, timesteps=timesteps)
 
     # one-hot encode MIDI symbols
-    # TODO use sklearn label encoder
     unique_x = list(set(x.ravel()))
     x_encoded = dict((note_, number) for number, note_ in enumerate(unique_x))
     x_seq = encode_seq(x, x_encoded)
@@ -75,17 +96,24 @@ if __name__ == '__main__':
                                p_crossover=0.7, p_subtree_mutation=0.1,
                                p_hoist_mutation=0.05, p_point_mutation=0.1,
                                max_samples=0.9, verbose=1,
+                               function_set=('add', 'sub', 'mul', 'div'),
                                parsimony_coefficient=0.01, random_state=0,
                                )
 
     est_gp.fit(X_train, y_train)
+    pickle_gp = pickle.dumps(est_gp)
+    pickle.dump(est_gp, open("models/est_gp.p", "wb"))
 
     print(est_gp._program)
 
     est_tree = DecisionTreeRegressor()
     est_tree.fit(X_train, y_train)
+    pickle.dump(est_tree, open("models/est_tree.p", "wb"))
+
     est_rf = RandomForestRegressor()
     est_rf.fit(X_train, y_train)
+    pickle_rf = pickle.dumps(est_rf)
+    pickle.dump(est_rf, open("models/est_rf.p", "wb"))
 
     y_gp = est_gp.predict(np.c_[X_train.ravel(), X_test.ravel()]).reshape(X_train.shape)
     score_gp = est_gp.score(X_test, y_test)
@@ -116,3 +144,4 @@ if __name__ == '__main__':
     graph = graphviz.Source(dot_data)
     graph.render('images/ex1_child', format='png', cleanup=True)
     graph
+    compose(est_gp, unique_x, X_test, timesteps, fp=output_path)
