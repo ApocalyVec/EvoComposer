@@ -33,7 +33,7 @@ if __name__ == '__main__':
 
     if _train:
         # build wavenet model
-        model = make_model(input_len=len(unique_x), output_len=len(unique_y))
+        model = make_model(categories=len(unique_x), output_len=len(unique_y))
         mc = ModelCheckpoint('models/best_model.h5', monitor='val_loss', mode='min', save_best_only=True, verbose=1)
         history = model.fit(np.array(x_tr), np.array(y_tr), batch_size=128, epochs=50,
                             validation_data=(np.array(x_val), np.array(y_val)), verbose=1, callbacks=[mc])
@@ -48,7 +48,7 @@ if __name__ == '__main__':
     else:
         model = load_model('models/best_model.h5')
 
-    # make music
+    # make music_list
     output_path = 'music/rnn/pred_3.mid'
     compose(model, unique_x, x_val, timesteps, fp=output_path)
 

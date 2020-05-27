@@ -33,7 +33,7 @@ class Encoder(nn.Module):
         self.var = nn.Linear(hidden_dim, z_dim)
 
     def forward(self, x):
-        # x is of shape [batch_size, input_dim]
+        # hidden_decoder is of shape [batch_size, input_dim]
 
         hidden = F.relu(self.linear(x))
         # hidden_dim is of shape [batch_size, hidden_dim]
@@ -62,7 +62,7 @@ class Decoder(nn.Module):
         self.out = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x):
-        # x is of shape [batch_size, latent_dim]
+        # hidden_decoder is of shape [batch_size, latent_dim]
 
         hidden = F.relu(self.linear(x))
         # hidden_dim is of shape [batch_size, hidden_dim]

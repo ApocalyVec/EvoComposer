@@ -72,7 +72,7 @@ if __name__ == '__main__':
     # only keep the notes with frequency that are higher than 50
     frequent_notes = [n for n, f in freq.items() if f >= f_threshold]
     music_filtered = create_filtered(notes_array, frequent_notes)
-    x, y = prepare_xy(music_filtered, timesteps=timesteps)
+    x, y = prepare_xy(music_filtered, window_size=timesteps)
 
     # one-hot encode MIDI symbols
     unique_x = list(set(x.ravel()))
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     # create train-test split
     X_train, X_test, y_train, y_test = train_test_split(x_seq, y_seq, test_size=0.2, random_state=0)
 
-    # make music
+    # make music_list
     output_path = 'music/gp_music.mid'
 
     # edit_metric = make_fitness(calc_edit, greater_is_better=False, wrap=True)
@@ -135,7 +135,7 @@ if __name__ == '__main__':
         ax.set_yticks(np.arange(-1, 1.01, .5))
         points = ax.scatter(X_train[:, 0], X_train[:, 1], y_train)
         if score is not None:
-            score = ax.text(-.7, 1, .2, "$R^2 =\/ %.6f$" % score, 'x', fontsize=14)
+            score = ax.text(-.7, 1, .2, "$R^2 =\/ %.6f$" % score, 'hidden_decoder', fontsize=14)
         plt.title(title)
 
     plt.show()
