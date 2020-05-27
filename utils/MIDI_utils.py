@@ -212,10 +212,8 @@ def load_sample_unsupervised(data_dir, timesteps, f_threshold, _use_spark=False)
         notes_array = notes_rdd.collect()
     else:
         notes_array = np.array([read_midi(os.path.join(data_dir, x)) for x in files])
-    notes = np.ravel(notes_array)
-    notes = notes.tolist()
-
-    freq = OrderedDict(Counter(notes))
+    notes_flat = [item for sublist in notes_array for item in sublist]
+    freq = OrderedDict(Counter(notes_flat))
 
     # plt.plot([f for f in freq.values()])  # plot the frequencies
 
