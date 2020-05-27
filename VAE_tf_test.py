@@ -6,12 +6,11 @@ import numpy as np
 import glob
 import matplotlib.pyplot as plt
 import PIL
-import imageio
 
 from utils.MIDI_utils import load_sample_unsupervised
 
-# NUM_CLASSES = 167
-NUM_CLASSES = 11
+NUM_CLASSES = 167
+# NUM_CLASSES = 11
 TIMESTEPS = 64
 
 class RVAE(tf.keras.Model):
@@ -105,7 +104,7 @@ train_dataset = tf.data.Dataset.from_tensor_slices(x_train).shuffle(TRAIN_BUF).b
 test_dataset = tf.data.Dataset.from_tensor_slices(x_test).shuffle(TEST_BUF).batch(BATCH_SIZE)
 
 epochs = 100
-latent_dim = 2
+latent_dim = 8
 num_examples_to_generate = 16
 
 # keeping the random vector constant for generation (prediction) so
