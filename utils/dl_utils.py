@@ -20,13 +20,13 @@ def lstm(n_vocab):
     return model
 
 
-def make_model(input_len, output_len):
+def make_model(categories, output_len):
     print('Clearing session')
     K.clear_session()
     model = Sequential()
 
     # embedding layer
-    model.add(Embedding(input_len, 100, input_length=32, trainable=True))
+    model.add(Embedding(categories, 100, input_length=32, trainable=True))
 
     model.add(Conv1D(64, 3, padding='causal', activation='relu'))
     model.add(Dropout(0.2))

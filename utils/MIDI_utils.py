@@ -9,6 +9,7 @@ from pyspark import SparkConf, SparkContext
 import os
 
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder
 
 
 def read_midi(file):
@@ -87,14 +88,24 @@ def prepare_xy(music, window_size):
     return np.array(x), np.array(y)
 
 
-def prepare_x(music, window_size, stride=1):
+def prepare_x(music_list, window_size, stride=1):
     x = []
-    for note_ in music:
+    encoder = OneHotEncoder()
+    encoder.fit(np.expand_dims(np.ravel(music_list), axis=-1))
+    for note_ in music_list:
         for i in range(0, len(note_) - window_size, stride):
-            # preparing input and output sequences
             input_ = note_[i:i + window_size]
-            x.append(input_)
-    return np.array(x)
+            x.append(encoder.transform(np.expand_dims(input_, axis=-1)).toarray())
+    return np.array(x), encoder
+
+
+def window_slice(data, window_size, stride):
+    assert window_size <= len(data)
+    assert stride > 0
+    rtn = []
+    for i in range(window_size, len(data), stride):
+        rtn.append(data[i - window_size:i])
+    return np.array(rtn)
 
 
 def encode_seq(x, encode_dict):
@@ -188,12 +199,14 @@ def load_samples(data_dir, timesteps, f_threshold, _use_spark=False):
 
 
 def load_sample_unsupervised(data_dir, timesteps, f_threshold, _use_spark=False):
-    spark_location = '/Users/Leo/spark-2.4.3-bin-hadoop2.7'  # Set your own
-    java8_location = '/Library/Java/JavaVirtualMachines/jdk1.8.0_151.jdk/Contents/Home/jre'
-    os.environ['JAVA_HOME'] = java8_location
-    findspark.init(spark_home=spark_location)
     files = [x for x in os.listdir(data_dir) if x.split('.')[-1] == 'mid']  # read all the files end with mid
+    files = files[:1]
+
     if _use_spark:
+        spark_location = '/Users/Leo/spark-2.4.3-bin-hadoop2.7'  # Set your own
+        java8_location = '/Library/Java/JavaVirtualMachines/jdk1.8.0_151.jdk/Contents/Home/jre'
+        os.environ['JAVA_HOME'] = java8_location
+        findspark.init(spark_home=spark_location)
         sc = _create_sc(num_cores=16, driver_mem=12, max_result_mem=12)
         files_rdd = sc.parallelize(files)
         notes_flat_rdd = files_rdd.flatMap(lambda x: read_midi(os.path.join(data_dir, x))).cache()
@@ -204,6 +217,7 @@ def load_sample_unsupervised(data_dir, timesteps, f_threshold, _use_spark=False)
     else:
         notes_array = np.array([read_midi(os.path.join(data_dir, x)) for x in files])
         notes = np.ravel(notes_array)
+        notes = notes.tolist()
 
     freq = OrderedDict(Counter(notes))
 
@@ -212,14 +226,12 @@ def load_sample_unsupervised(data_dir, timesteps, f_threshold, _use_spark=False)
     # only keep the notes with frequency that are higher than 50
     frequent_notes = [n for n, f in freq.items() if f >= f_threshold]
     music_filtered = create_filtered(notes_array, frequent_notes)
-    x = prepare_x(music_filtered, window_size=timesteps)
+
+    x, encoder = prepare_x(music_filtered, window_size=timesteps)
 
     # one-hot encode MIDI symbols
     # TODO use sklearn label encoder
-    unique_x = list(set(x.ravel()))
-    x_encoded = dict((note_, number) for number, note_ in enumerate(unique_x))
-    x_seq = encode_seq(x, x_encoded)
 
-    x_tr, x_val = train_test_split(x_seq, test_size=0.2, random_state=0)
+    x_tr, x_val = train_test_split(x, test_size=0.2, random_state=0)
 
-    return x_tr, x_val, unique_x
+    return x_tr, x_val, encoder
