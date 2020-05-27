@@ -199,9 +199,8 @@ def load_samples(data_dir, timesteps, f_threshold, _use_spark=False):
     return x_tr, x_val, y_tr, y_val, unique_x, unique_y
 
 
-def load_sample_unsupervised(data_dir, timesteps, f_threshold, _use_spark=True):
+def load_sample_unsupervised(data_dir, timesteps, f_threshold, _use_spark=False):
     files = [x for x in os.listdir(data_dir) if x.split('.')[-1] == 'mid']  # read all the files end with mid
-    # files = files[:1]
     if _use_spark:
         spark_location = '/Users/Leo/spark-2.4.3-bin-hadoop2.7'  # Set your own
         java8_location = '/Library/Java/JavaVirtualMachines/jdk1.8.0_151.jdk/Contents/Home/jre'
@@ -209,15 +208,12 @@ def load_sample_unsupervised(data_dir, timesteps, f_threshold, _use_spark=True):
         findspark.init(spark_home=spark_location)
         sc = _create_sc(num_cores=16, driver_mem=12, max_result_mem=12)
         files_rdd = sc.parallelize(files)
-        notes_flat_rdd = files_rdd.flatMap(lambda x: read_midi(os.path.join(data_dir, x))).cache()
         notes_rdd = files_rdd.map(lambda x: read_midi(os.path.join(data_dir, x))).cache()
-
         notes_array = notes_rdd.collect()
-        notes = notes_flat_rdd.collect()
     else:
         notes_array = np.array([read_midi(os.path.join(data_dir, x)) for x in files])
-        notes = np.ravel(notes_array)
-        notes = notes.tolist()
+    notes = np.ravel(notes_array)
+    notes = notes.tolist()
 
     freq = OrderedDict(Counter(notes))
 
