@@ -91,7 +91,8 @@ def prepare_xy(music, window_size):
 def prepare_x(music_list, window_size, stride=1):
     x = []
     encoder = OneHotEncoder()
-    encoder.fit(np.expand_dims(np.ravel(music_list), axis=-1))
+    flat = [item for sublist in music_list for item in sublist]
+    encoder.fit(np.expand_dims(flat, axis=-1))
     for note_ in music_list:
         for i in range(0, len(note_) - window_size, stride):
             input_ = note_[i:i + window_size]
@@ -198,9 +199,8 @@ def load_samples(data_dir, timesteps, f_threshold, _use_spark=False):
     return x_tr, x_val, y_tr, y_val, unique_x, unique_y
 
 
-def load_sample_unsupervised(data_dir, timesteps, f_threshold, _use_spark=False):
+def load_sample_unsupervised(data_dir, timesteps, f_threshold, _use_spark=True):
     files = [x for x in os.listdir(data_dir) if x.split('.')[-1] == 'mid']  # read all the files end with mid
-    files = files[:1]
 
     if _use_spark:
         spark_location = '/Users/Leo/spark-2.4.3-bin-hadoop2.7'  # Set your own
