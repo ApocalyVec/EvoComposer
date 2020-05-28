@@ -95,7 +95,7 @@ def compute_apply_gradients(model, x, optimizer):
 data_dir = 'data/schubert'
 input_timesteps = 64
 f_threshold = 50
-x_train, x_test, one_hot_encoder = load_sample_unsupervised(data_dir, input_timesteps, f_threshold)
+x_train, x_test, one_hot_encoder = load_sample_unsupervised(data_dir, input_timesteps, f_threshold, _use_spark=True)
 
 TRAIN_BUF = len(x_train)
 TEST_BUF = len(x_test)

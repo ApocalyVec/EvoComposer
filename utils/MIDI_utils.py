@@ -202,10 +202,10 @@ def load_samples(data_dir, timesteps, f_threshold, _use_spark=False):
 def load_sample_unsupervised(data_dir, timesteps, f_threshold, _use_spark=False):
     files = [x for x in os.listdir(data_dir) if x.split('.')[-1] == 'mid']  # read all the files end with mid
     if _use_spark:
-        spark_location = '/Users/Leo/spark-2.4.3-bin-hadoop2.7'  # Set your own
-        java8_location = '/Library/Java/JavaVirtualMachines/jdk1.8.0_151.jdk/Contents/Home/jre'
-        os.environ['JAVA_HOME'] = java8_location
-        findspark.init(spark_home=spark_location)
+        # spark_location = '/Users/Leo/spark-2.4.3-bin-hadoop2.7'  # Set your own
+        # java8_location = '/Library/Java/JavaVirtualMachines/jdk1.8.0_151.jdk/Contents/Home/jre'
+        # os.environ['JAVA_HOME'] = java8_location
+        # findspark.init(spark_home=spark_location)
         sc = _create_sc(num_cores=16, driver_mem=12, max_result_mem=12)
         files_rdd = sc.parallelize(files)
         notes_rdd = files_rdd.map(lambda x: read_midi(os.path.join(data_dir, x))).cache()
