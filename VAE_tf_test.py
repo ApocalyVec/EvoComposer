@@ -6,8 +6,9 @@ import numpy as np
 import glob
 import matplotlib.pyplot as plt
 import PIL
+from sklearn.preprocessing import OneHotEncoder
 
-from utils.MIDI_utils import load_sample_unsupervised
+from utils.MIDI_utils import load_sample_unsupervised, convert_to_midi
 
 NUM_CLASSES = 167
 # NUM_CLASSES = 11
@@ -17,6 +18,8 @@ REPEAT_Z = 4
 DENSE_DIM = 256
 latent_dim = 64
 assert int(REPEAT_Z * DENSE_DIM / TIMESTEPS) > 0.
+
+
 class RVAE(tf.keras.Model):
     def __init__(self, latent_dim):
         super(RVAE, self).__init__()
@@ -97,6 +100,14 @@ def compute_apply_gradients(model, x, optimizer):
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     return loss
 
+
+def generate_and_save_audio(model, test_input, encoder: OneHotEncoder, out):
+    predictions = model.sample(test_input)
+    for i, s in enumerate(predictions):
+        predicted_notes = encoder.inverse_transform(s).toarray()
+        convert_to_midi(predicted_notes, os.path.join(out, 'vae_{}'.format(i)))
+
+
 data_dir = 'data/schubert'
 input_timesteps = 64
 f_threshold = 50
@@ -114,8 +125,7 @@ num_examples_to_generate = 16
 
 # keeping the random vector constant for generation (prediction) so
 # it will be easier to see the improvement.
-random_vector_for_generation = tf.random.normal(
-    shape=[num_examples_to_generate, latent_dim])
+
 model = RVAE(latent_dim)
 
 tr_losses = []
@@ -142,3 +152,12 @@ for epoch in range(1, epochs + 1):
                                                         end_time - start_time))
     tr_losses.append(train_elbo)
     tr_losses.append(val_losses)
+
+
+outpath = '/music/vae_sch'
+random_vector_for_generation = tf.random.normal(
+    shape=[num_examples_to_generate, latent_dim])
+predictions = model.sample(random_vector_for_generation)
+for i, s in enumerate(predictions):
+    predicted_notes = one_hot_encoder.inverse_transform(s).toarray()
+    convert_to_midi(predicted_notes, os.path.join(outpath, 'vae_{}'.format(i)))
