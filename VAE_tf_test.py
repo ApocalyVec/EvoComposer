@@ -105,7 +105,7 @@ train_dataset = tf.data.Dataset.from_tensor_slices(x_train).shuffle(TRAIN_BUF).b
 test_dataset = tf.data.Dataset.from_tensor_slices(x_test).shuffle(TEST_BUF).batch(BATCH_SIZE)
 
 epochs = 100
-latent_dim = 8
+latent_dim = 32
 num_examples_to_generate = 16
 
 # keeping the random vector constant for generation (prediction) so
