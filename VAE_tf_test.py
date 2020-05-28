@@ -13,7 +13,10 @@ NUM_CLASSES = 167
 # NUM_CLASSES = 11
 TIMESTEPS = 64
 LSTM_DIM = 256
-
+REPEAT_Z = 4
+DENSE_DIM = 256
+latent_dim = 64
+assert int(REPEAT_Z * DENSE_DIM / TIMESTEPS) > 0.
 class RVAE(tf.keras.Model):
     def __init__(self, latent_dim):
         super(RVAE, self).__init__()
@@ -30,11 +33,13 @@ class RVAE(tf.keras.Model):
         self.generative_net = tf.keras.Sequential(
             [
                 tf.keras.layers.InputLayer(input_shape=(latent_dim,)),
-                tf.keras.layers.Dense(units=64, activation=tf.nn.relu),
-                tf.keras.layers.Reshape(target_shape=(64, 1)),
+                tf.keras.layers.RepeatVector(REPEAT_Z),
+                tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(units=DENSE_DIM, activation=tf.nn.relu)),
+                tf.keras.layers.Reshape(target_shape=(TIMESTEPS, int(REPEAT_Z * DENSE_DIM / TIMESTEPS))),
+                # tf.keras.layers.Reshape(target_shape=(64, 1)),
                 tf.keras.layers.LSTM(LSTM_DIM, return_sequences=True),
-                # No activation
-                tf.keras.layers.LSTM(NUM_CLASSES, return_sequences=True, activation='softmax')
+                tf.keras.layers.LSTM(LSTM_DIM, return_sequences=True),
+                tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(NUM_CLASSES, activation='softmax'))
             ]
         )
 
@@ -105,7 +110,6 @@ train_dataset = tf.data.Dataset.from_tensor_slices(x_train).shuffle(TRAIN_BUF).b
 test_dataset = tf.data.Dataset.from_tensor_slices(x_test).shuffle(TEST_BUF).batch(BATCH_SIZE)
 
 epochs = 100
-latent_dim = 32
 num_examples_to_generate = 16
 
 # keeping the random vector constant for generation (prediction) so
@@ -114,6 +118,9 @@ random_vector_for_generation = tf.random.normal(
     shape=[num_examples_to_generate, latent_dim])
 model = RVAE(latent_dim)
 
+tr_losses = []
+val_losses = []
+print('Training commenced')
 for epoch in range(1, epochs + 1):
     start_time = time.time()
     train_loss = tf.keras.metrics.Mean()
@@ -133,3 +140,5 @@ for epoch in range(1, epochs + 1):
                                                         train_elbo,
                                                         test_elbo,
                                                         end_time - start_time))
+    tr_losses.append(train_elbo)
+    tr_losses.append(val_losses)
