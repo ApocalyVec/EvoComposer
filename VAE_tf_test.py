@@ -12,6 +12,7 @@ from utils.MIDI_utils import load_sample_unsupervised
 NUM_CLASSES = 167
 # NUM_CLASSES = 11
 TIMESTEPS = 64
+LSTM_DIM = 256
 
 class RVAE(tf.keras.Model):
     def __init__(self, latent_dim):
@@ -20,7 +21,7 @@ class RVAE(tf.keras.Model):
         self.inference_net = tf.keras.Sequential(
             [
                 tf.keras.layers.InputLayer(input_shape=(TIMESTEPS, NUM_CLASSES)),
-                tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(64)),
+                tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(LSTM_DIM)),
                 # No activation
                 tf.keras.layers.Dense(latent_dim + latent_dim),
             ]
@@ -31,7 +32,7 @@ class RVAE(tf.keras.Model):
                 tf.keras.layers.InputLayer(input_shape=(latent_dim,)),
                 tf.keras.layers.Dense(units=64, activation=tf.nn.relu),
                 tf.keras.layers.Reshape(target_shape=(64, 1)),
-                tf.keras.layers.LSTM(TIMESTEPS, return_sequences=True),
+                tf.keras.layers.LSTM(LSTM_DIM, return_sequences=True),
                 # No activation
                 tf.keras.layers.LSTM(NUM_CLASSES, return_sequences=True, activation='softmax')
             ]
