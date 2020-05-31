@@ -1,15 +1,17 @@
-from keras import Sequential
-from keras.layers import LSTM, Dense, Activation
-from keras.layers import *
-from keras.models import *
-from keras.callbacks import *
-import keras.backend as K
 import numpy as np
+import tensorflow as tf
+from tensorflow.python.keras.layers.core import Activation
+from tensorflow.python.keras.layers.embeddings import Embedding
+from tensorflow.python.keras.layers.pooling import MaxPool1D, GlobalMaxPool1D
+from tensorflow.python.keras.layers.recurrent import LSTM
+from tensorflow.python.layers.convolutional import Conv1D
+from tensorflow.python.layers.core import Dropout, Dense
+
 from utils.MIDI_utils import convert_to_midi
 
 
 def lstm(n_vocab):
-    model = Sequential()
+    model = tf.keras.Sequential()
     model.add(LSTM(128, return_sequences=True))
     model.add(LSTM(128))
     model.add(Dense(256))
@@ -22,8 +24,7 @@ def lstm(n_vocab):
 
 def make_model(categories, output_len):
     print('Clearing session')
-    K.clear_session()
-    model = Sequential()
+    model = tf.keras.Sequential()
 
     # embedding layer
     model.add(Embedding(categories, 100, input_length=32, trainable=True))

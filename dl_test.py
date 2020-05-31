@@ -24,7 +24,7 @@ from utils.MIDI_utils import read_midi, _create_sc, create_filtered, prepare_xy,
 import random
 
 if __name__ == '__main__':
-    _train = False
+    _train = True
     data_dir = 'data/schubert'
     timesteps = 32
     f_threshold = 50
@@ -49,6 +49,6 @@ if __name__ == '__main__':
         model = load_model('models/best_model.h5')
 
     # make music_list
-    output_path = 'music/rnn/pred_3.mid'
+    output_path = 'music/rnn/pred_5.mid'
     compose(model, unique_x, x_val, timesteps, fp=output_path)
 
