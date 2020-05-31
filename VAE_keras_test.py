@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 import argparse
 import os
 
-
-from tensorflow.python.keras.utils import plot_model
+from tensorflow.python.keras.backend import mean
+from tensorflow.python.keras.utils.vis_utils import plot_model
 
 from utils.MIDI_utils import load_sample_unsupervised
 
@@ -28,11 +28,10 @@ def sampling(args):
     batch = K.shape(z_mean)[0]
     dim = K.int_shape(z_mean)[1]
     # by default, random_normal has mean = 0 and std = 1.0
-    epsilon = K.random_normal(shape=(batch, dim))
+    epsilon = tf.random.normal(shape=(batch, dim))
     return z_mean + K.exp(0.5 * z_log_var) * epsilon
 
 # script body ##########################################################################################################
-
 data_dir = 'data/schubert'
 input_timesteps = 64
 f_threshold = 50
@@ -52,10 +51,11 @@ epochs = 50
 
 # VAE model = encoder + decoder
 # build encoder model
-inputs = tf.keras.Input(shape=(input_timesteps, num_classes))
-hidden_encoder = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(intermediate_dim))(inputs)
-z_mean = tf.keras.layers.Dense(latent_dim, name='z_mean')(hidden_encoder)
-z_log_var = tf.keras.layers.Dense(latent_dim, name='z_log_var')(hidden_encoder)
+inputs = tf.keras.Input(shape=(input_timesteps, num_classes), name='encoder_input')
+# x = tf.keras.layers.Reshape(target_shape=(input_timesteps, num_classes))(inputs)
+x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(intermediate_dim))(inputs)
+z_mean = tf.keras.layers.Dense(latent_dim, name='z_mean')(x)
+z_log_var = tf.keras.layers.Dense(latent_dim, name='z_log_var')(x)
 
 # use reparameterization trick to push the sampling out as input
 # note that "output_shape" isn't necessary with the TensorFlow backend
@@ -65,33 +65,49 @@ z = tf.keras.layers.Lambda(sampling, output_shape=(latent_dim,), name='z')([z_me
 encoder = tf.keras.Model(inputs, [z_mean, z_log_var, z], name='encoder')
 encoder.summary()
 plot_model(encoder, to_file='figs/vae_mlp_encoder.png', show_shapes=True)
+
 # build decoder layers
 latent_inputs = tf.keras.layers.Input(shape=(latent_dim, ), name='z_sampling')
-hidden_decoder = tf.keras.layers.Dense(input_timesteps, activation='relu')(latent_inputs)
-hidden_decoder = tf.keras.layers.Reshape(target_shape=(input_timesteps, 1))(hidden_decoder)
-hidden_decoder = tf.keras.layers.LSTM(intermediate_dim, return_sequences=True)(hidden_decoder)
-outputs = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(num_classes, activation='softmax'))(hidden_decoder)
-# hidden_decoder = tf.keras.layers.Dense(latent_steps * latent_dim)(latent_inputs)
-# hidden_decoder = tf.keras.layers.Reshape(target_shape=(latent_steps, latent_dim))(hidden_decoder)
-# hidden_decoder = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(intermediate_dim))(hidden_decoder)
-# outputs = tf.keras.layers.TimeDistributed(Dense(len(unique_x), activation='sigmoid')(hidden_decoder))
+# x = tf.keras.layers.Dense(input_timesteps, activation='relu')(latent_inputs)
+# x = tf.keras.layers.Reshape(target_shape=(input_timesteps, 1))(x)
+x = tf.keras.layers.RepeatVector(input_timesteps)(latent_inputs)
+
+# A ################################################################
+# x = tf.keras.layers.LSTM(intermediate_dim, return_sequences=True)(x)
+# x = tf.keras.layers.Flatten()(x)
+# x = tf.keras.layers.Dense(input_timesteps * num_classes, activation='softmax')(x)
+# outputs = tf.keras.layers.Reshape(target_shape=(input_timesteps, num_classes))(x)
+# B ################################################################
+x = tf.keras.layers.LSTM(intermediate_dim, return_sequences=True)(x)
+outputs = tf.keras.layers.LSTM(num_classes, return_sequences=True)(x)
+
+# outputs = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(num_classes, activation='softmax'))(x)
+# C ################################################################
+# x = tf.keras.layers.LSTM(intermediate_dim)(x)
+# x = tf.keras.layers.Dense(input_timesteps * num_classes, activation='softmax')(x)
+# outputs = tf.keras.layers.Reshape(target_shape=(input_timesteps, num_classes))(x)
+# D ################################################################
+# x = tf.keras.layers.LSTM(intermediate_dim)(x)
+# outputs = tf.keras.layers.Dense(input_timesteps * num_classes, activation='softmax')(x)
+####################################################################
 # instantiate decoder model
 decoder = tf.keras.Model(latent_inputs, outputs, name='decoder')
 decoder.summary()
 plot_model(decoder, to_file='figs/vae_mlp_decoder.png', show_shapes=True)
+
 # instantiate VAE model
+outputs = decoder(encoder(inputs)[2])  # connect the decoder with the encoder
 vae = tf.keras.Model(inputs, outputs, name='vae_mlp')
-plot_model(vae, to_file='figs/vae_mlp.png', show_shapes=True)
+
 # training the model
-models = (encoder, decoder)
-reconstruction_loss = categorical_crossentropy(inputs, outputs)  # use sparse because class are in integers
+reconstruction_loss = binary_crossentropy(inputs, outputs)
 reconstruction_loss *= original_dim
 kl_loss = 1 + z_log_var - K.square(z_mean) - K.exp(z_log_var)
 kl_loss = K.sum(kl_loss, axis=-1)
 kl_loss *= -0.5
-vae_loss = K.mean(reconstruction_loss + kl_loss)
+vae_loss = mean(reconstruction_loss + kl_loss)
 vae.add_loss(vae_loss)
-vae.compile(optimizer='adam', loss='categorical_crossentropy')
+vae.compile(optimizer='adam')
 vae.summary()
 plot_model(vae, to_file='figs/vae_mlp.png', show_shapes=True)
-vae.fit(x_train, epochs=epochs, batch_size=batch_size, validation_data=(x_test, None))
+# vae.fit(x_train, epochs=epochs, batch_size=batch_size, validation_data=(x_test, None))

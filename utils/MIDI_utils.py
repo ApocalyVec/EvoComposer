@@ -91,7 +91,8 @@ def prepare_xy(music, window_size):
 def prepare_x(music_list, window_size, stride=1):
     x = []
     encoder = OneHotEncoder()
-    encoder.fit(np.expand_dims(np.ravel(music_list), axis=-1))
+    flat = [item for sublist in music_list for item in sublist]
+    encoder.fit(np.expand_dims(flat, axis=-1))
     for note_ in music_list:
         for i in range(0, len(note_) - window_size, stride):
             input_ = note_[i:i + window_size]
@@ -200,26 +201,19 @@ def load_samples(data_dir, timesteps, f_threshold, _use_spark=False):
 
 def load_sample_unsupervised(data_dir, timesteps, f_threshold, _use_spark=False):
     files = [x for x in os.listdir(data_dir) if x.split('.')[-1] == 'mid']  # read all the files end with mid
-    files = files[:1]
-
     if _use_spark:
-        spark_location = '/Users/Leo/spark-2.4.3-bin-hadoop2.7'  # Set your own
-        java8_location = '/Library/Java/JavaVirtualMachines/jdk1.8.0_151.jdk/Contents/Home/jre'
-        os.environ['JAVA_HOME'] = java8_location
-        findspark.init(spark_home=spark_location)
+        # spark_location = '/Users/Leo/spark-2.4.3-bin-hadoop2.7'  # Set your own
+        # java8_location = '/Library/Java/JavaVirtualMachines/jdk1.8.0_151.jdk/Contents/Home/jre'
+        # os.environ['JAVA_HOME'] = java8_location
+        # findspark.init(spark_home=spark_location)
         sc = _create_sc(num_cores=16, driver_mem=12, max_result_mem=12)
         files_rdd = sc.parallelize(files)
-        notes_flat_rdd = files_rdd.flatMap(lambda x: read_midi(os.path.join(data_dir, x))).cache()
         notes_rdd = files_rdd.map(lambda x: read_midi(os.path.join(data_dir, x))).cache()
-
         notes_array = notes_rdd.collect()
-        notes = notes_flat_rdd.collect()
     else:
         notes_array = np.array([read_midi(os.path.join(data_dir, x)) for x in files])
-        notes = np.ravel(notes_array)
-        notes = notes.tolist()
-
-    freq = OrderedDict(Counter(notes))
+    notes_flat = [item for sublist in notes_array for item in sublist]
+    freq = OrderedDict(Counter(notes_flat))
 
     # plt.plot([f for f in freq.values()])  # plot the frequencies
 
