@@ -12,10 +12,10 @@ import numpy as np
 from collections import Counter, OrderedDict
 from sklearn.model_selection import train_test_split
 from keras.models import *
-from keras.callbacks import *
 import keras.backend as K
 from keras.models import load_model
 import matplotlib.pyplot as plt
+from tensorflow.python.keras.callbacks import ModelCheckpoint
 
 from utils.dl_utils import make_model, compose
 from utils.MIDI_utils import read_midi, _create_sc, create_filtered, prepare_xy, encode_seq, convert_to_midi, \
@@ -49,6 +49,6 @@ if __name__ == '__main__':
         model = load_model('models/best_model.h5')
 
     # make music_list
-    output_path = 'music/rnn/pred_5.mid'
+    output_path = 'music/rnn/pred_8.mid'
     compose(model, unique_x, x_val, timesteps, fp=output_path)
 

@@ -1,22 +1,17 @@
 import numpy as np
 import tensorflow as tf
-from tensorflow.python.keras.layers.core import Activation
-from tensorflow.python.keras.layers.embeddings import Embedding
-from tensorflow.python.keras.layers.pooling import MaxPool1D, GlobalMaxPool1D
-from tensorflow.python.keras.layers.recurrent import LSTM
-from tensorflow.python.layers.convolutional import Conv1D
-from tensorflow.python.layers.core import Dropout, Dense
+from keras.layers import Activation
 
 from utils.MIDI_utils import convert_to_midi
 
 
 def lstm(n_vocab):
     model = tf.keras.Sequential()
-    model.add(LSTM(128, return_sequences=True))
-    model.add(LSTM(128))
-    model.add(Dense(256))
+    model.add(tf.keras.layers.LSTM(128, return_sequences=True))
+    model.add(tf.keras.layers.LSTM(128))
+    model.add(tf.keras.layers.Dense(256))
     model.add(Activation('relu'))
-    model.add(Dense(n_vocab))
+    model.add(tf.keras.layers.Dense(n_vocab))
     model.add(Activation('softmax'))
     model.compile(loss='sparse_categorical_crossentropy', optimizer='adam')
     return model
@@ -27,25 +22,25 @@ def make_model(categories, output_len):
     model = tf.keras.Sequential()
 
     # embedding layer
-    model.add(Embedding(categories, 100, input_length=32, trainable=True))
+    model.add(tf.keras.layers.Embedding(categories, 100, input_length=32, trainable=True))
 
-    model.add(Conv1D(64, 3, padding='causal', activation='relu'))
-    model.add(Dropout(0.2))
-    model.add(MaxPool1D(2))
+    model.add(tf.keras.layers.Conv1D(64, 3, padding='causal', activation='relu'))
+    model.add(tf.keras.layers.Dropout(0.2))
+    model.add(tf.keras.layers.MaxPool1D(2))
 
-    model.add(Conv1D(128, 3, activation='relu', dilation_rate=2, padding='causal'))
-    model.add(Dropout(0.2))
-    model.add(MaxPool1D(2))
+    model.add(tf.keras.layers.Conv1D(128, 3, activation='relu', dilation_rate=2, padding='causal'))
+    model.add(tf.keras.layers.Dropout(0.2))
+    model.add(tf.keras.layers.MaxPool1D(2))
 
-    model.add(Conv1D(256, 3, activation='relu', dilation_rate=4, padding='causal'))
-    model.add(Dropout(0.2))
-    model.add(MaxPool1D(2))
+    model.add(tf.keras.layers.Conv1D(256, 3, activation='relu', dilation_rate=4, padding='causal'))
+    model.add(tf.keras.layers.Dropout(0.2))
+    model.add(tf.keras.layers.MaxPool1D(2))
 
     # model.add(Conv1D(256,5,activation='relu'))
-    model.add(GlobalMaxPool1D())
+    model.add(tf.keras.layers.GlobalMaxPool1D())
 
-    model.add(Dense(256, activation='relu'))
-    model.add(Dense(output_len, activation='softmax'))
+    model.add(tf.keras.layers.Dense(256, activation='relu'))
+    model.add(tf.keras.layers.Dense(output_len, activation='softmax'))
 
     model.compile(loss='sparse_categorical_crossentropy', optimizer='adam')
     return model
