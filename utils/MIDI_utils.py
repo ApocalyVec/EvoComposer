@@ -11,7 +11,8 @@ import os
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 
-
+release_freq = 0
+rest_freq = -1
 def read_midi(file):
     """
     # defining function to read MIDI files
@@ -22,19 +23,18 @@ def read_midi(file):
 
     notes = []
     notes_to_parse = None
-
-    # parsing a midi file
+    sampled_notes = []
+    sampled_freq = []
     midi = converter.parse(file)
 
     # grouping based on different instruments
     s2 = instrument.partitionByInstrument(midi)
-
-    # Looping over all the instruments
     for part in s2.parts:
 
         # select elements of only piano
         if 'Piano' in str(part):
 
+            # notes_to_parse = part.recurse()
             notes_to_parse = part.recurse()
 
             # finding whether a particular element is note or a chord
@@ -42,13 +42,41 @@ def read_midi(file):
 
                 # note
                 if isinstance(element, note.Note):
+                    duration = element.duration
                     notes.append(str(element.pitch))
+
+                    replicate = [element.pitch] * int(duration.quarterLength * 24)
+                    sampled_notes.extend(replicate)
+                    sampled_notes[-1] = 'Release'
+
+                    replicate_freq = [element.pitch.frequency] * int(duration.quarterLength * 24)
+                    sampled_freq.extend(replicate_freq)
+                    sampled_freq[-1] = release_freq
 
                 # chord
                 elif isinstance(element, chord.Chord):
-                    notes.append('.'.join(str(n) for n in element.normalOrder))
-
-    return np.array(notes)
+                    duration = element.duration
+                    # for pitch in element.pitches:
+                    #     print(pitch.freq)
+                    # if element.volume.velocity == 0:
+                    #     release.append(element)
+                    # if duration.fullName == 'Zero':
+                    #     print(duration.quarterLength)
+                    #     print("found2")
+                    #     zeros.append(duration)
+                    # notes.append('.'.join(str(n) for n in element.normalOrder))
+                    # # durations.append(duration)
+                    # replicate = ['.'.join(str(n) for n in element.normalOrder)] * int(duration.quarterLength * 24)
+                    # sampled_notes.extend(replicate)
+                    # sampled_notes[-1] = 'Release'
+                    # sets[duration.fullName] = duration.quarterLength
+                elif isinstance(element, note.Rest):
+                    duration = element.duration
+                    replicate = ['Rest'] * int(duration.quarterLength * 24)
+                    sampled_notes.extend(replicate)
+                    replicate_freq = [rest_freq] * int(duration.quarterLength * 24)
+                    sampled_freq.extend(replicate_freq)
+    return np.array(notes), sampled_notes, sampled_freq
 
 
 def _create_sc(num_cores: int, driver_mem: int, max_result_mem: int):
@@ -157,8 +185,11 @@ def convert_to_midi(prediction_output, fp):
 
 
 def load_samples(data_dir, timesteps, f_threshold, _use_spark=False):
-    spark_location = '/Users/Leo/spark-2.4.3-bin-hadoop2.7'  # Set your own
-    java8_location = '/Library/Java/JavaVirtualMachines/jdk1.8.0_151.jdk/Contents/Home/jre'
+    # / Users / Leo / spark - 2.4
+    # .3 - bin - hadoop2
+    # .7
+    spark_location = '/Users/liy/Downloads/spark-2.4.6-bin-hadoop2.7'  # Set your own
+    java8_location = '/Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home'
     os.environ['JAVA_HOME'] = java8_location
     findspark.init(spark_home=spark_location)
     files = [x for x in os.listdir(data_dir) if x.split('.')[-1] == 'mid']  # read all the files end with mid
@@ -186,6 +217,8 @@ def load_samples(data_dir, timesteps, f_threshold, _use_spark=False):
     # one-hot encode MIDI symbols
     # TODO use sklearn label encoder
     unique_x = list(set(x.ravel()))
+    # note like 3A to a number
+    # encode node to a int number
     x_encoded = dict((note_, number) for number, note_ in enumerate(unique_x))
     x_seq = encode_seq(x, x_encoded)
 
