@@ -13,7 +13,7 @@ from sklearn.preprocessing import OneHotEncoder
 
 release_freq = 0
 rest_freq = -1
-def read_midi(file):
+def generate_MIDI_representation(file, beat_resolution=24):
     """
     # defining function to read MIDI files
     :param file:
@@ -39,23 +39,21 @@ def read_midi(file):
 
             # finding whether a particular element is note or a chord
             for element in notes_to_parse:
-
                 # note
                 if isinstance(element, note.Note):
                     duration = element.duration
                     notes.append(str(element.pitch))
 
-                    replicate = [element.pitch] * int(duration.quarterLength * 24)
+                    replicate = [element.pitch] * int(duration.quarterLength * beat_resolution)
                     sampled_notes.extend(replicate)
                     sampled_notes[-1] = 'Release'
 
-                    replicate_freq = [element.pitch.frequency] * int(duration.quarterLength * 24)
-                    sampled_freq.extend(replicate_freq)
+                    note_freq = [element.pitch.frequency] * int(duration.quarterLength * beat_resolution)
+                    sampled_freq.extend(note_freq)
                     sampled_freq[-1] = release_freq
-
                 # chord
-                elif isinstance(element, chord.Chord):
-                    duration = element.duration
+                # elif isinstance(element, chord.Chord):
+                    # duration = element.duration
                     # for pitch in element.pitches:
                     #     print(pitch.freq)
                     # if element.volume.velocity == 0:
@@ -72,10 +70,10 @@ def read_midi(file):
                     # sets[duration.fullName] = duration.quarterLength
                 elif isinstance(element, note.Rest):
                     duration = element.duration
-                    replicate = ['Rest'] * int(duration.quarterLength * 24)
+                    replicate = ['Rest'] * int(duration.quarterLength * beat_resolution)
                     sampled_notes.extend(replicate)
-                    replicate_freq = [rest_freq] * int(duration.quarterLength * 24)
-                    sampled_freq.extend(replicate_freq)
+                    note_freq = [rest_freq] * int(duration.quarterLength * beat_resolution)
+                    sampled_freq.extend(note_freq)
     return np.array(notes), sampled_notes, sampled_freq
 
 
@@ -196,13 +194,13 @@ def load_samples(data_dir, timesteps, f_threshold, _use_spark=False):
     if _use_spark:
         sc = _create_sc(num_cores=16, driver_mem=12, max_result_mem=12)
         files_rdd = sc.parallelize(files)
-        notes_flat_rdd = files_rdd.flatMap(lambda x: read_midi(os.path.join(data_dir, x))).cache()
-        notes_rdd = files_rdd.map(lambda x: read_midi(os.path.join(data_dir, x))).cache()
+        notes_flat_rdd = files_rdd.flatMap(lambda x: generate_MIDI_representation(os.path.join(data_dir, x))).cache()
+        notes_rdd = files_rdd.map(lambda x: generate_MIDI_representation(os.path.join(data_dir, x))).cache()
 
         notes_array = notes_rdd.collect()
         notes = notes_flat_rdd.collect()
     else:
-        notes_array = np.array([read_midi(os.path.join(data_dir, x)) for x in files])
+        notes_array = np.array([generate_MIDI_representation(os.path.join(data_dir, x)) for x in files])
         notes = np.ravel(notes_array)
 
     freq = OrderedDict(Counter(notes))
@@ -241,10 +239,10 @@ def load_sample_unsupervised(data_dir, timesteps, f_threshold, _use_spark=False)
         # findspark.init(spark_home=spark_location)
         sc = _create_sc(num_cores=16, driver_mem=12, max_result_mem=12)
         files_rdd = sc.parallelize(files)
-        notes_rdd = files_rdd.map(lambda x: read_midi(os.path.join(data_dir, x))).cache()
+        notes_rdd = files_rdd.map(lambda x: generate_MIDI_representation(os.path.join(data_dir, x))).cache()
         notes_array = notes_rdd.collect()
     else:
-        notes_array = np.array([read_midi(os.path.join(data_dir, x)) for x in files])
+        notes_array = np.array([generate_MIDI_representation(os.path.join(data_dir, x)) for x in files])
     notes_flat = [item for sublist in notes_array for item in sublist]
     freq = OrderedDict(Counter(notes_flat))
 

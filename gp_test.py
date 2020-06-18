@@ -18,7 +18,7 @@ from collections import Counter, OrderedDict
 from sklearn.model_selection import train_test_split
 
 
-from utils.MIDI_utils import read_midi, _create_sc, create_filtered, prepare_xy, encode_seq
+from utils.MIDI_utils import generate_MIDI_representation, _create_sc, create_filtered, prepare_xy, encode_seq
 import nltk
 nltk.download('punkt')
 
@@ -37,8 +37,8 @@ if __name__ == '__main__':
 
     files = [x for x in os.listdir(data_dir) if x.split('.')[-1] == 'mid']  # read all the files end with mid
     files_rdd = sc.parallelize(files)
-    notes_flat_rdd = files_rdd.flatMap(lambda x: read_midi(os.path.join(data_dir, x))).cache()
-    notes_rdd = files_rdd.map(lambda x: read_midi(os.path.join(data_dir, x))).cache()
+    notes_flat_rdd = files_rdd.flatMap(lambda x: generate_MIDI_representation(os.path.join(data_dir, x))).cache()
+    notes_rdd = files_rdd.map(lambda x: generate_MIDI_representation(os.path.join(data_dir, x))).cache()
 
     notes_array = notes_rdd.collect()
     notes = notes_flat_rdd.collect()

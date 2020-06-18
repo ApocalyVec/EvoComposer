@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from tensorflow.python.keras.callbacks import ModelCheckpoint
 
 from utils.dl_utils import make_model, compose
-from utils.MIDI_utils import read_midi, _create_sc, create_filtered, prepare_xy, encode_seq, convert_to_midi, \
+from utils.MIDI_utils import generate_MIDI_representation, _create_sc, create_filtered, prepare_xy, encode_seq, convert_to_midi, \
     load_samples
 
 import random
