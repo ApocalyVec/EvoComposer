@@ -11,9 +11,8 @@ import os
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 
-release_freq = 0
-rest_freq = -1
-def generate_MIDI_representation(file, beat_resolution=24):
+
+def generate_MIDI_representation(file, release_freq, rest_freq, beat_resolution=24):
     """
     # defining function to read MIDI files
     :param file:
