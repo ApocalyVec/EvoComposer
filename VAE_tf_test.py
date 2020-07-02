@@ -1,16 +1,13 @@
-import tensorflow as tf
-
 import os
 import time
+
+import findspark
 import numpy as np
-import glob
-import matplotlib.pyplot as plt
-import PIL
+import tensorflow as tf
 from sklearn.preprocessing import OneHotEncoder
 
-from utils.MIDI_utils import load_sample_unsupervised, convert_to_midi, load_samples
+from utils.MIDI_utils import convert_to_midi, load_samples_repr
 
-NUM_CLASSES = 167
 # NUM_CLASSES = 11
 TIMESTEPS = 64
 LSTM_DIM = 256
@@ -26,7 +23,7 @@ class RVAE(tf.keras.Model):
         self.latent_dim = latent_dim
         self.inference_net = tf.keras.Sequential(
             [
-                tf.keras.layers.InputLayer(input_shape=(TIMESTEPS, NUM_CLASSES)),
+                tf.keras.layers.InputLayer(input_shape=(TIMESTEPS, 1)),  # TODO we don't have classes
                 tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(LSTM_DIM)),
                 # No activation
                 tf.keras.layers.Dense(latent_dim + latent_dim),
@@ -109,18 +106,28 @@ def generate_and_save_audio(model, test_input, encoder: OneHotEncoder, out):
 
 
 # data_dir = 'data/schubert'
-data_dir = '/Users/liy/Downloads/evocomposer/lmd_full/1/'
+data_dir = '/Users/Leo/Documents/data/lmd_full/1'
 input_timesteps = 768
-f_threshold = 50
-x_tr, x_val, y_tr, y_val, unique_x, unique_y = load_samples(data_dir, input_timesteps, f_threshold, True)
+
+# set spark locations if you are using Spark on Mac and you don't want to bother with environment variables
+# / Users / Leo / spark - 2.4
+# .3 - bin - hadoop2
+# .7
+# spark_location = '/Users/liy/Downloads/spark-2.4.6-bin-hadoop2.7'  # Set your own
+# java8_location = '/Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home'
+spark_location = '/Users/Leo/spark-2.4.3-bin-hadoop2.7' # Set your own
+java8_location = '/Library/Java/JavaVirtualMachines/jdk1.8.0_151.jdk/Contents/Home/jre'
+os.environ['JAVA_HOME'] = java8_location
+findspark.init(spark_home=spark_location)
+x_tr, x_val, unique_x, encoder = load_samples_repr(data_dir, input_timesteps, _use_spark=True)
 # x_train, x_test, one_hot_encoder = load_sample_unsupervised(data_dir, input_timesteps, f_threshold, _use_spark=True)
 
-TRAIN_BUF = len(x_train)
-TEST_BUF = len(x_test)
+TRAIN_BUF = len(x_tr)
+TEST_BUF = len(x_val)
 BATCH_SIZE = 1024
 
-train_dataset = tf.data.Dataset.from_tensor_slices(x_train).shuffle(TRAIN_BUF).batch(BATCH_SIZE)
-test_dataset = tf.data.Dataset.from_tensor_slices(x_test).shuffle(TEST_BUF).batch(BATCH_SIZE)
+train_dataset = tf.data.Dataset.from_tensor_slices(x_tr).shuffle(TRAIN_BUF).batch(BATCH_SIZE)
+test_dataset = tf.data.Dataset.from_tensor_slices(x_val).shuffle(TEST_BUF).batch(BATCH_SIZE)
 
 epochs = 100
 num_examples_to_generate = 16

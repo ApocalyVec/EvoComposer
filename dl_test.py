@@ -19,7 +19,7 @@ from tensorflow.python.keras.callbacks import ModelCheckpoint
 
 from utils.dl_utils import make_model, compose
 from utils.MIDI_utils import generate_MIDI_representation, _create_sc, create_filtered, prepare_xy, encode_seq, convert_to_midi, \
-    load_samples
+    load_samples_repr
 
 import random
 
@@ -29,7 +29,7 @@ if __name__ == '__main__':
     timesteps = 32
     f_threshold = 50
 
-    x_tr, x_val, y_tr, y_val, unique_x, unique_y = load_samples(data_dir, timesteps, f_threshold, _use_spark=True)
+    x_tr, x_val, y_tr, y_val, unique_x, unique_y = load_samples_repr(data_dir, timesteps, f_threshold, _use_spark=True)
 
     if _train:
         # build wavenet model

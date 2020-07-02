@@ -9,7 +9,7 @@ from pyspark import SparkConf, SparkContext
 import os
 
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 
 
 def generate_MIDI_representation(file, release_freq, rest_freq, beat_resolution=24):
@@ -28,53 +28,55 @@ def generate_MIDI_representation(file, release_freq, rest_freq, beat_resolution=
 
     # grouping based on different instruments
     s2 = instrument.partitionByInstrument(midi)
-    for part in s2.parts:
+    if s2:
+        for part in s2.parts:
+            # select elements of only piano
+            if 'Piano' in str(part):
 
-        # select elements of only piano
-        if 'Piano' in str(part):
+                # notes_to_parse = part.recurse()
+                notes_to_parse = part.recurse()
 
-            # notes_to_parse = part.recurse()
-            notes_to_parse = part.recurse()
+                # finding whether a particular element is note or a chord
+                for element in notes_to_parse:
+                    # note
+                    if isinstance(element, note.Note):
+                        duration = element.duration
+                        notes.append(str(element.pitch))
 
-            # finding whether a particular element is note or a chord
-            for element in notes_to_parse:
-                # note
-                if isinstance(element, note.Note):
-                    duration = element.duration
-                    notes.append(str(element.pitch))
+                        replicate = [element.pitch] * int(duration.quarterLength * beat_resolution)
+                        sampled_notes.extend(replicate)
+                        if len(sampled_notes) != 0:
+                            sampled_notes[-1] = 'Release'
 
-                    replicate = [element.pitch] * int(duration.quarterLength * beat_resolution)
-                    sampled_notes.extend(replicate)
-                    if len(sampled_notes) != 0:
-                        sampled_notes[-1] = 'Release'
-
-                    note_freq = [element.pitch.frequency] * int(duration.quarterLength * beat_resolution)
-                    sampled_freq.extend(note_freq)
-                    if len(sampled_freq) != 0:
-                        sampled_freq[-1] = release_freq
-                # chord
-                # elif isinstance(element, chord.Chord):
-                    # duration = element.duration
-                    # for pitch in element.pitches:
-                    #     print(pitch.freq)
-                    # if element.volume.velocity == 0:
-                    #     release.append(element)
-                    # if duration.fullName == 'Zero':
-                    #     print(duration.quarterLength)
-                    #     print("found2")
-                    #     zeros.append(duration)
-                    # notes.append('.'.join(str(n) for n in element.normalOrder))
-                    # # durations.append(duration)
-                    # replicate = ['.'.join(str(n) for n in element.normalOrder)] * int(duration.quarterLength * 24)
-                    # sampled_notes.extend(replicate)
-                    # sampled_notes[-1] = 'Release'
-                    # sets[duration.fullName] = duration.quarterLength
-                elif isinstance(element, note.Rest):
-                    duration = element.duration
-                    replicate = ['Rest'] * int(duration.quarterLength * beat_resolution)
-                    sampled_notes.extend(replicate)
-                    note_freq = [rest_freq] * int(duration.quarterLength * beat_resolution)
-                    sampled_freq.extend(note_freq)
+                        note_freq = [element.pitch.frequency] * int(duration.quarterLength * beat_resolution)
+                        sampled_freq.extend(note_freq)
+                        if len(sampled_freq) != 0:
+                            sampled_freq[-1] = release_freq
+                    # chord
+                    # elif isinstance(element, chord.Chord):
+                        # duration = element.duration
+                        # for pitch in element.pitches:
+                        #     print(pitch.freq)
+                        # if element.volume.velocity == 0:
+                        #     release.append(element)
+                        # if duration.fullName == 'Zero':
+                        #     print(duration.quarterLength)
+                        #     print("found2")
+                        #     zeros.append(duration)
+                        # notes.append('.'.join(str(n) for n in element.normalOrder))
+                        # # durations.append(duration)
+                        # replicate = ['.'.join(str(n) for n in element.normalOrder)] * int(duration.quarterLength * 24)
+                        # sampled_notes.extend(replicate)
+                        # sampled_notes[-1] = 'Release'
+                        # sets[duration.fullName] = duration.quarterLength
+                    elif isinstance(element, note.Rest):
+                        duration = element.duration
+                        replicate = ['Rest'] * int(duration.quarterLength * beat_resolution)
+                        sampled_notes.extend(replicate)
+                        note_freq = [rest_freq] * int(duration.quarterLength * beat_resolution)
+                        sampled_freq.extend(note_freq)
+    else:
+        print('Ignoring MIDI file: ' + file + '\nfor it cannot be partitioned by instrument ')
     return np.array(notes), sampled_notes, sampled_freq
 
 
@@ -117,14 +119,11 @@ def prepare_xy(music, window_size):
 
 def prepare_x(music_list, window_size, stride=1):
     x = []
-    encoder = OneHotEncoder()
-    flat = [item for sublist in music_list for item in sublist]
-    encoder.fit(np.expand_dims(flat, axis=-1))
-    for note_ in music_list:
-        for i in range(0, len(note_) - window_size, stride):
-            input_ = note_[i:i + window_size]
-            x.append(encoder.transform(np.expand_dims(input_, axis=-1)).toarray())
-    return np.array(x), encoder
+    for note_array in music_list:
+        for i in range(0, len(note_array) - window_size, stride):
+            input_ = note_array[i:i + window_size]
+            x.append(input_)
+    return np.array(x)
 
 
 def window_slice(data, window_size, stride):
@@ -183,49 +182,38 @@ def convert_to_midi(prediction_output, fp):
     midi_stream.write('midi', fp=fp)
 
 
-def load_samples(data_dir, timesteps, f_threshold, _use_spark=False):
-    # / Users / Leo / spark - 2.4
-    # .3 - bin - hadoop2
-    # .7
-    spark_location = '/Users/liy/Downloads/spark-2.4.6-bin-hadoop2.7'  # Set your own
-    java8_location = '/Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home'
-    os.environ['JAVA_HOME'] = java8_location
-    findspark.init(spark_home=spark_location)
+def load_samples_repr(data_dir, timesteps, release_freq=0, rest_freq=1, rest_threshold=0.3, _use_spark=False):
     files = [x for x in os.listdir(data_dir) if x.split('.')[-1] == 'mid']  # read all the files end with mid
+    files = files[:16]
     if _use_spark:
         sc = _create_sc(num_cores=16, driver_mem=12, max_result_mem=12)
         files_rdd = sc.parallelize(files)
-        processed_rdd = files_rdd.map(lambda x: generate_MIDI_representation(os.path.join(data_dir, x), -1, 0)).cache()
-
+        processed_rdd = files_rdd.map(lambda x: generate_MIDI_representation(os.path.join(data_dir, x), release_freq, rest_freq)).cache()
         processed = processed_rdd.collect()
-        print()
     else:
-        processed = np.array([generate_MIDI_representation(os.path.join(data_dir, x), -1, 0) for x in files])
-        print()
-    #     notes = np.ravel(notes_array)
-    #
-    # freq = OrderedDict(Counter(notes))
-
-    # plt.plot([f for f in freq.values()])  # plot the frequencies
-
-    # only keep the notes with frequency that are higher than 50
-    # frequent_notes = [n for n, f in freq.items() if f >= f_threshold]
-    # music_filtered = create_filtered(notes_array, frequent_notes)
+        processed = np.array([generate_MIDI_representation(os.path.join(data_dir, x), release_freq, rest_freq) for x in files])
     freq_array_list = [np.array(x[2]) for x in processed]
-    x = prepare_x(freq_array_list, window_size=timesteps)
-    # TODO remove a sample if more than 30% of this sample are rests
-    # TODO use sklearn label encoder
-    x_encoded = dict((note_, number) for number, note_ in enumerate(unique_x))
-    x_seq = encode_seq(x, x_encoded)
+    X = prepare_x(freq_array_list, window_size=timesteps)
+    # TODO implement that filter_by_rest function
+    X = filter_by_rests(X, rest_freq, threshold=rest_threshold)
+    unique_x = np.unique(X)
 
-    unique_y = list(set(y))
-    y_note_to_int = dict((note_, number) for number, note_ in enumerate(unique_y))
-    y_seq = np.array([y_note_to_int[i] for i in y])
+    le = LabelEncoder().fit(unique_x)
+    X = np.array([le.fit_transform(x) for x in X])
 
     # create train-test split
-    x_tr, x_val, y_tr, y_val = train_test_split(x_seq, y_seq, test_size=0.2, random_state=0)
+    x_tr, x_val = train_test_split(X, test_size=0.2, random_state=0)
 
-    return x_tr, x_val, y_tr, y_val, unique_x, unique_y
+    return x_tr, x_val, unique_x, le
+
+def filter_by_rests(samples, rest_freq, threshold):
+    # TODO implement that filter_by_rest function
+    rtn = []
+    for s in samples:
+        rests = [x for x in s if x == rest_freq]
+        if len(rests) / len(s) <= threshold:
+            rtn.append(s)
+    return rtn
 
 
 def load_sample_unsupervised(data_dir, timesteps, f_threshold, _use_spark=False):
@@ -243,8 +231,6 @@ def load_sample_unsupervised(data_dir, timesteps, f_threshold, _use_spark=False)
         notes_array = np.array([generate_MIDI_representation(os.path.join(data_dir, x)) for x in files])
     notes_flat = [item for sublist in notes_array for item in sublist]
     freq = OrderedDict(Counter(notes_flat))
-
-    # plt.plot([f for f in freq.values()])  # plot the frequencies
 
     # only keep the notes with frequency that are higher than 50
     frequent_notes = [n for n, f in freq.items() if f >= f_threshold]

@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 import pandas as pd
 import numpy as np
 
-from utils.MIDI_utils import load_samples
+from utils.MIDI_utils import load_samples_repr
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -142,7 +142,7 @@ data_dir = 'data/schubert'
 timesteps = 32
 f_threshold = 50
 
-x_tr, x_val, y_tr, y_val, unique_x, unique_y = load_samples(data_dir, timesteps, f_threshold, _use_spark=True)
+x_tr, x_val, y_tr, y_val, unique_x, unique_y = load_samples_repr(data_dir, timesteps, f_threshold, _use_spark=True)
 
 # a very good writeup on loss functions:
 # https://medium.com/udacity-pytorch-challengers/a-brief-overview-of-loss-functions-in-pytorch-c0ddb78068f7
