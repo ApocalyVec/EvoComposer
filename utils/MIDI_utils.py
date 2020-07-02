@@ -196,11 +196,12 @@ def load_samples_repr(data_dir, timesteps, release_freq=0, rest_freq=1, rest_thr
     X = prepare_x(freq_array_list, window_size=timesteps)
     # TODO implement that filter_by_rest function
     X = filter_by_rests(X, rest_freq, threshold=rest_threshold)
-    unique_x = np.unique(X)
+    unique_x = np.unique(X.flatten())
 
     le = LabelEncoder().fit(unique_x)
-    X = np.array([le.fit_transform(x) for x in X])
-
+    X = np.array([le.transform(x) for x in X])
+    for x in X:
+        le.inverse_transform(x)
     # create train-test split
     x_tr, x_val = train_test_split(X, test_size=0.2, random_state=0)
 
@@ -213,7 +214,7 @@ def filter_by_rests(samples, rest_freq, threshold):
         rests = [x for x in s if x == rest_freq]
         if len(rests) / len(s) <= threshold:
             rtn.append(s)
-    return rtn
+    return np.array(rtn)
 
 
 def load_sample_unsupervised(data_dir, timesteps, f_threshold, _use_spark=False):

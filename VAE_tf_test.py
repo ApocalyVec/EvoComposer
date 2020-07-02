@@ -8,7 +8,7 @@ from sklearn.preprocessing import OneHotEncoder
 
 from utils.MIDI_utils import convert_to_midi, load_samples_repr
 
-# NUM_CLASSES = 11
+NUM_CLASSES = 11
 TIMESTEPS = 64
 LSTM_DIM = 256
 # REPEAT_Z = 4
@@ -108,17 +108,11 @@ data_dir = '/Users/Leo/Documents/data/lmd_full/1'
 input_timesteps = 768
 
 # set spark locations if you are using Spark on Mac and you don't want to bother with environment variables
-# / Users / Leo / spark - 2.4
-# .3 - bin - hadoop2
-# .7
-# spark_location = '/Users/liy/Downloads/spark-2.4.6-bin-hadoop2.7'  # Set your own
-# java8_location = '/Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home'
 spark_location = '/Users/Leo/spark-2.4.3-bin-hadoop2.7' # Set your own
 java8_location = '/Library/Java/JavaVirtualMachines/jdk1.8.0_151.jdk/Contents/Home/jre'
 os.environ['JAVA_HOME'] = java8_location
 findspark.init(spark_home=spark_location)
 x_tr, x_val, unique_x, encoder = load_samples_repr(data_dir, input_timesteps, _use_spark=True)
-# x_train, x_test, one_hot_encoder = load_sample_unsupervised(data_dir, input_timesteps, f_threshold, _use_spark=True)
 
 TRAIN_BUF = len(x_tr)
 TEST_BUF = len(x_val)
@@ -166,5 +160,5 @@ random_vector_for_generation = tf.random.normal(
     shape=[num_examples_to_generate, latent_dim])
 predictions = model.sample(random_vector_for_generation)
 for i, s in enumerate(predictions):
-    predicted_notes = one_hot_encoder.inverse_transform(s).toarray()
+    predicted_notes = encoder.inverse_transform(s).toarray()
     convert_to_midi(predicted_notes, os.path.join(outpath, 'vae_{}'.format(i)))
