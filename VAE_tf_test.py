@@ -11,10 +11,10 @@ from utils.MIDI_utils import convert_to_midi, load_samples_repr
 # NUM_CLASSES = 11
 TIMESTEPS = 64
 LSTM_DIM = 256
-REPEAT_Z = 4
+# REPEAT_Z = 4
 DENSE_DIM = 256
 latent_dim = 64
-assert int(REPEAT_Z * DENSE_DIM / TIMESTEPS) > 0.
+# assert int(REPEAT_Z * DENSE_DIM / TIMESTEPS) > 0.
 
 
 class RVAE(tf.keras.Model):
@@ -25,7 +25,6 @@ class RVAE(tf.keras.Model):
             [
                 tf.keras.layers.InputLayer(input_shape=(TIMESTEPS, 1)),  # TODO we don't have classes
                 tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(LSTM_DIM)),
-                # No activation
                 tf.keras.layers.Dense(latent_dim + latent_dim),
             ]
         )
@@ -33,10 +32,9 @@ class RVAE(tf.keras.Model):
         self.generative_net = tf.keras.Sequential(
             [
                 tf.keras.layers.InputLayer(input_shape=(latent_dim,)),
-                tf.keras.layers.RepeatVector(REPEAT_Z),
+                # tf.keras.layers.RepeatVector(REPEAT_Z),  # TODO add back the vector repeats
                 tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(units=DENSE_DIM, activation=tf.nn.relu)),
-                tf.keras.layers.Reshape(target_shape=(TIMESTEPS, int(REPEAT_Z * DENSE_DIM / TIMESTEPS))),
-                # tf.keras.layers.Reshape(target_shape=(64, 1)),
+                # tf.keras.layers.Reshape(target_shape=(TIMESTEPS, int(REPEAT_Z * DENSE_DIM / TIMESTEPS))),
                 tf.keras.layers.LSTM(LSTM_DIM, return_sequences=True),
                 tf.keras.layers.LSTM(LSTM_DIM, return_sequences=True),
                 tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(NUM_CLASSES, activation='softmax'))
