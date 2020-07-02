@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import PIL
 from sklearn.preprocessing import OneHotEncoder
 
-from utils.MIDI_utils import load_sample_unsupervised, convert_to_midi
+from utils.MIDI_utils import load_sample_unsupervised, convert_to_midi, load_samples
 
 NUM_CLASSES = 167
 # NUM_CLASSES = 11
@@ -108,10 +108,12 @@ def generate_and_save_audio(model, test_input, encoder: OneHotEncoder, out):
         convert_to_midi(predicted_notes, os.path.join(out, 'vae_{}'.format(i)))
 
 
-data_dir = 'data/schubert'
-input_timesteps = 64
+# data_dir = 'data/schubert'
+data_dir = '/Users/liy/Downloads/evocomposer/lmd_full/1/'
+input_timesteps = 768
 f_threshold = 50
-x_train, x_test, one_hot_encoder = load_sample_unsupervised(data_dir, input_timesteps, f_threshold, _use_spark=True)
+x_tr, x_val, y_tr, y_val, unique_x, unique_y = load_samples(data_dir, input_timesteps, f_threshold, True)
+# x_train, x_test, one_hot_encoder = load_sample_unsupervised(data_dir, input_timesteps, f_threshold, _use_spark=True)
 
 TRAIN_BUF = len(x_train)
 TEST_BUF = len(x_test)

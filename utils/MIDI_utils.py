@@ -45,11 +45,13 @@ def generate_MIDI_representation(file, release_freq, rest_freq, beat_resolution=
 
                     replicate = [element.pitch] * int(duration.quarterLength * beat_resolution)
                     sampled_notes.extend(replicate)
-                    sampled_notes[-1] = 'Release'
+                    if len(sampled_notes) != 0:
+                        sampled_notes[-1] = 'Release'
 
                     note_freq = [element.pitch.frequency] * int(duration.quarterLength * beat_resolution)
                     sampled_freq.extend(note_freq)
-                    sampled_freq[-1] = release_freq
+                    if len(sampled_freq) != 0:
+                        sampled_freq[-1] = release_freq
                 # chord
                 # elif isinstance(element, chord.Chord):
                     # duration = element.duration
@@ -193,29 +195,26 @@ def load_samples(data_dir, timesteps, f_threshold, _use_spark=False):
     if _use_spark:
         sc = _create_sc(num_cores=16, driver_mem=12, max_result_mem=12)
         files_rdd = sc.parallelize(files)
-        notes_flat_rdd = files_rdd.flatMap(lambda x: generate_MIDI_representation(os.path.join(data_dir, x))).cache()
-        notes_rdd = files_rdd.map(lambda x: generate_MIDI_representation(os.path.join(data_dir, x))).cache()
+        processed_rdd = files_rdd.map(lambda x: generate_MIDI_representation(os.path.join(data_dir, x), -1, 0)).cache()
 
-        notes_array = notes_rdd.collect()
-        notes = notes_flat_rdd.collect()
+        processed = processed_rdd.collect()
+        print()
     else:
-        notes_array = np.array([generate_MIDI_representation(os.path.join(data_dir, x)) for x in files])
-        notes = np.ravel(notes_array)
-
-    freq = OrderedDict(Counter(notes))
+        processed = np.array([generate_MIDI_representation(os.path.join(data_dir, x), -1, 0) for x in files])
+        print()
+    #     notes = np.ravel(notes_array)
+    #
+    # freq = OrderedDict(Counter(notes))
 
     # plt.plot([f for f in freq.values()])  # plot the frequencies
 
     # only keep the notes with frequency that are higher than 50
-    frequent_notes = [n for n, f in freq.items() if f >= f_threshold]
-    music_filtered = create_filtered(notes_array, frequent_notes)
-    x, y = prepare_xy(music_filtered, window_size=timesteps)
-
-    # one-hot encode MIDI symbols
+    # frequent_notes = [n for n, f in freq.items() if f >= f_threshold]
+    # music_filtered = create_filtered(notes_array, frequent_notes)
+    freq_array_list = [np.array(x[2]) for x in processed]
+    x = prepare_x(freq_array_list, window_size=timesteps)
+    # TODO remove a sample if more than 30% of this sample are rests
     # TODO use sklearn label encoder
-    unique_x = list(set(x.ravel()))
-    # note like 3A to a number
-    # encode node to a int number
     x_encoded = dict((note_, number) for number, note_ in enumerate(unique_x))
     x_seq = encode_seq(x, x_encoded)
 
