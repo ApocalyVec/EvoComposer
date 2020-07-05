@@ -52,7 +52,7 @@ epochs = 50
 # VAE model = encoder + decoder
 # build encoder model
 inputs = tf.keras.Input(shape=(input_timesteps, num_classes), name='encoder_input')
-# x = tf.keras.layers.Reshape(target_shape=(input_timesteps, num_classes))(inputs)
+# x = tf.keras.layers.Reshape(target_shape=(TIMESTEPS, num_classes))(inputs)
 x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(intermediate_dim))(inputs)
 z_mean = tf.keras.layers.Dense(latent_dim, name='z_mean')(x)
 z_log_var = tf.keras.layers.Dense(latent_dim, name='z_log_var')(x)
@@ -68,15 +68,15 @@ plot_model(encoder, to_file='figs/vae_mlp_encoder.png', show_shapes=True)
 
 # build decoder layers
 latent_inputs = tf.keras.layers.Input(shape=(latent_dim, ), name='z_sampling')
-# x = tf.keras.layers.Dense(input_timesteps, activation='relu')(latent_inputs)
-# x = tf.keras.layers.Reshape(target_shape=(input_timesteps, 1))(x)
+# x = tf.keras.layers.Dense(TIMESTEPS, activation='relu')(latent_inputs)
+# x = tf.keras.layers.Reshape(target_shape=(TIMESTEPS, 1))(x)
 x = tf.keras.layers.RepeatVector(input_timesteps)(latent_inputs)
 
 # A ################################################################
 # x = tf.keras.layers.LSTM(intermediate_dim, return_sequences=True)(x)
 # x = tf.keras.layers.Flatten()(x)
-# x = tf.keras.layers.Dense(input_timesteps * num_classes, activation='softmax')(x)
-# outputs = tf.keras.layers.Reshape(target_shape=(input_timesteps, num_classes))(x)
+# x = tf.keras.layers.Dense(TIMESTEPS * num_classes, activation='softmax')(x)
+# outputs = tf.keras.layers.Reshape(target_shape=(TIMESTEPS, num_classes))(x)
 # B ################################################################
 x = tf.keras.layers.LSTM(intermediate_dim, return_sequences=True)(x)
 outputs = tf.keras.layers.LSTM(num_classes, return_sequences=True)(x)
@@ -84,11 +84,11 @@ outputs = tf.keras.layers.LSTM(num_classes, return_sequences=True)(x)
 # outputs = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(num_classes, activation='softmax'))(x)
 # C ################################################################
 # x = tf.keras.layers.LSTM(intermediate_dim)(x)
-# x = tf.keras.layers.Dense(input_timesteps * num_classes, activation='softmax')(x)
-# outputs = tf.keras.layers.Reshape(target_shape=(input_timesteps, num_classes))(x)
+# x = tf.keras.layers.Dense(TIMESTEPS * num_classes, activation='softmax')(x)
+# outputs = tf.keras.layers.Reshape(target_shape=(TIMESTEPS, num_classes))(x)
 # D ################################################################
 # x = tf.keras.layers.LSTM(intermediate_dim)(x)
-# outputs = tf.keras.layers.Dense(input_timesteps * num_classes, activation='softmax')(x)
+# outputs = tf.keras.layers.Dense(TIMESTEPS * num_classes, activation='softmax')(x)
 ####################################################################
 # instantiate decoder model
 decoder = tf.keras.Model(latent_inputs, outputs, name='decoder')

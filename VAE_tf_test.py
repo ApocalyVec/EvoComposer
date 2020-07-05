@@ -4,17 +4,37 @@ import time
 import findspark
 import numpy as np
 import tensorflow as tf
+from note_seq import midi_file_to_note_sequence
 from sklearn.preprocessing import OneHotEncoder
+from tensorflow.python.keras.activations import softplus
 
 from utils.MIDI_utils import convert_to_midi, load_samples_repr
 
-NUM_CLASSES = 11
-TIMESTEPS = 64
 LSTM_DIM = 256
 # REPEAT_Z = 4
 DENSE_DIM = 256
 latent_dim = 64
 # assert int(REPEAT_Z * DENSE_DIM / TIMESTEPS) > 0.
+TIMESTEPS = 768
+BATCH_SIZE = 1024
+
+epochs = 100
+num_examples_to_generate = 16
+
+# datasets
+# data_dir = 'data/schubert'
+data_dir = '/Users/Leo/Documents/data/lmd_full/1'
+
+# set spark locations if you are using Spark on Mac and you don't want to bother with environment variables
+spark_location = '/Users/Leo/spark-2.4.3-bin-hadoop2.7' # Set your own
+java8_location = '/Library/Java/JavaVirtualMachines/jdk1.8.0_151.jdk/Contents/Home/jre'
+os.environ['JAVA_HOME'] = java8_location
+findspark.init(spark_home=spark_location)
+
+x_tr, x_val, unique_x, encoder = load_samples_repr(data_dir, TIMESTEPS, _use_spark=True)
+
+TRAIN_BUF = len(x_tr)
+TEST_BUF = len(x_val)
 
 
 class RVAE(tf.keras.Model):
@@ -23,9 +43,9 @@ class RVAE(tf.keras.Model):
         self.latent_dim = latent_dim
         self.inference_net = tf.keras.Sequential(
             [
-                tf.keras.layers.InputLayer(input_shape=(TIMESTEPS, 1)),  # TODO we don't have classes
+                tf.keras.layers.InputLayer(input_shape=(TIMESTEPS, 4)),  # TODO we don't have classes
                 tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(LSTM_DIM)),
-                tf.keras.layers.Dense(latent_dim + latent_dim),
+                tf.keras.layers.Dense(latent_dim + latent_dim, activation=tf.nn.softplus),
             ]
         )
 
@@ -37,7 +57,7 @@ class RVAE(tf.keras.Model):
                 # tf.keras.layers.Reshape(target_shape=(TIMESTEPS, int(REPEAT_Z * DENSE_DIM / TIMESTEPS))),
                 tf.keras.layers.LSTM(LSTM_DIM, return_sequences=True),
                 tf.keras.layers.LSTM(LSTM_DIM, return_sequences=True),
-                tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(NUM_CLASSES, activation='softmax'))
+                tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(1, activation='softmax'))
             ]
         )
 
@@ -103,30 +123,10 @@ def generate_and_save_audio(model, test_input, encoder: OneHotEncoder, out):
         convert_to_midi(predicted_notes, os.path.join(out, 'vae_{}'.format(i)))
 
 
-# data_dir = 'data/schubert'
-data_dir = '/Users/Leo/Documents/data/lmd_full/1'
-input_timesteps = 768
-
-# set spark locations if you are using Spark on Mac and you don't want to bother with environment variables
-spark_location = '/Users/Leo/spark-2.4.3-bin-hadoop2.7' # Set your own
-java8_location = '/Library/Java/JavaVirtualMachines/jdk1.8.0_151.jdk/Contents/Home/jre'
-os.environ['JAVA_HOME'] = java8_location
-findspark.init(spark_home=spark_location)
-x_tr, x_val, unique_x, encoder = load_samples_repr(data_dir, input_timesteps, _use_spark=True)
-
-TRAIN_BUF = len(x_tr)
-TEST_BUF = len(x_val)
-BATCH_SIZE = 1024
-
 train_dataset = tf.data.Dataset.from_tensor_slices(x_tr).shuffle(TRAIN_BUF).batch(BATCH_SIZE)
 test_dataset = tf.data.Dataset.from_tensor_slices(x_val).shuffle(TEST_BUF).batch(BATCH_SIZE)
 
-epochs = 100
-num_examples_to_generate = 16
-
 # keeping the random vector constant for generation (prediction) so
-# it will be easier to see the improvement.
-
 model = RVAE(latent_dim)
 
 tr_losses = []
@@ -155,10 +155,10 @@ for epoch in range(1, epochs + 1):
     tr_losses.append(val_losses)
 
 
-outpath = '/music/vae_sch'
-random_vector_for_generation = tf.random.normal(
-    shape=[num_examples_to_generate, latent_dim])
-predictions = model.sample(random_vector_for_generation)
-for i, s in enumerate(predictions):
-    predicted_notes = encoder.inverse_transform(s).toarray()
-    convert_to_midi(predicted_notes, os.path.join(outpath, 'vae_{}'.format(i)))
+# outpath = '/music/vae_sch'
+# random_vector_for_generation = tf.random.normal(
+#     shape=[num_examples_to_generate, latent_dim])
+# predictions = model.sample(random_vector_for_generation)
+# for i, s in enumerate(predictions):
+#     predicted_notes = encoder.inverse_transform(s).toarray()
+#     convert_to_midi(predicted_notes, os.path.join(outpath, 'vae_{}'.format(i)))
